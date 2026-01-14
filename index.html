@@ -44,11 +44,38 @@
 
         <div class="phone">
             <div class="phone__viewport">
-                <div class="fx" id="mainGlow">                    
-                    <div class="trigger"></div>
-                    <div class="chat"></div>
+                <div class="fx" id="spineOverlay">
+                    <div class="trigger-zone" id="triggerZone">
+                        <div class="spine-visual">
+                            <?xml version="1.0" encoding="UTF-8"?>
+                            <svg id="Calque_1" xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 4 250.94">
+                            <defs>
+                                <style>
+                                .st0 {
+                                    fill: url(#Dégradé_sans_nom_13);
+                                    fill-rule: evenodd;
+                                }
+                                </style>
+                                <linearGradient id="Dégradé_sans_nom_13" data-name="Dégradé sans nom 13" x1="66.33" y1="188.22" x2="-59.02" y2="62.87" gradientUnits="userSpaceOnUse">
+                                <stop offset="0" stop-color="#706f6f"/>
+                                <stop offset="1" stop-color="#ededed"/>
+                                </linearGradient>
+                            </defs>
+                            <path class="st0" d="M0,11.72v102.54c0,1.19.19,2.3.51,3.08.93,2.29,1.49,5.13,1.49,8.21s-.56,5.91-1.49,8.21c-.32.78-.51,1.89-.51,3.08v102.54c0,6.17,1.79,11.17,4,11.17V.55C1.79.55,0,5.55,0,11.72Z"/>
+                            </svg>
+                        </div>
+                        <div class="touch-glow" id="touchGlow"></div>
+                        <div class="spine-grip"></div>
+                    </div>
+                    
+                    <div class="chat-panel" id="chatPanel">
+                        <button class="close-btn" id="closeBtn">×</button>
+                        <div class="chat-content">
+                            <h2>Assistant IA</h2>
+                            <p>Comment puis-je vous aider aujourd'hui ?</p>
+                        </div>
+                    </div>
                 </div>
-
                 <div class="phone__scroll-container">
                     <img id="screenshotImg" src="nike.png" alt="Produit" />
                 </div>
