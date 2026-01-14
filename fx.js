@@ -1,123 +1,223 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const trigger = document.querySelector('.trigger');
-    const chat = document.querySelector('.chat');
+    const trigger = document.getElementById('triggerZone');
+    const panel = document.getElementById('chatPanel');
+    const closeBtn = document.getElementById('closeBtn');
     const body = document.body;
-    
-    // Configuration Physique
-    const CONFIG = {
-        threshold: 0.30, // 30% de l'écran pour déclencher l'ouverture
-        resistance: 0.2, // Facteur de résistance au tirage
-        primingDelay: 3000 // 3 secondes avant l'animation d'intro
-    };
 
+    // --- Séquence Temporelle (États n0 -> n1 -> n2) ---
+    
+    // 1. Délai initial (n0)
+    setTimeout(() => {
+        // 2. Animation d'amorçage (Sort et rentre)
+        trigger.classList.add('intro-anim');
+        
+        // Une fois l'intro finie, on passe en mode PULSE (n1)
+        setTimeout(() => {
+            trigger.classList.remove('intro-anim');
+            trigger.classList.add('pulse');
+        }, 1500);
+
+        // 3. Apparition de l'étiquette (n2) après 3 secondes de pulse
+        setTimeout(() => {
+            trigger.setAttribute('data-label', 'Un conseil ?');
+            trigger.classList.add('flag-visible');
+            
+            // On cache l'étiquette après 4s pour ne pas polluer
+            setTimeout(() => {
+                trigger.classList.remove('flag-visible');
+            }, 4000);
+        }, 4500);
+
+    }, 1000); // Commence 1s après le chargement de la page
+
+
+    // --- Logique Drag & Swipe (Souris + Tactile) ---
+    
+    let isDragging = false;
     let startX = 0;
     let currentX = 0;
-    let isDragging = false;
-    let panelWidth = chat.offsetWidth || 350; // Largeur par défaut si caché
+    const dragThreshold = 0.3; // 30% de l'écran
 
-    // --- 1. AMORÇAGE (État n0 -> n1) ---
-    setTimeout(() => {
-        // Lance l'animation CSS "primeSlide"
-        trigger.classList.add('priming');
-        
-        // Nettoyage après l'animation
-        setTimeout(() => trigger.classList.remove('priming'), 1200);
-        
-        // Lance le "Flag" (n2) peu après pour la démo
-        setTimeout(() => showFlag("Besoin d'un conseil ?"), 5000);
-    }, CONFIG.primingDelay);
-
-    // Fonction pour afficher le Flag (n2)
-    function showFlag(text) {
-        trigger.setAttribute('data-label', text);
-        trigger.classList.add('flag-active');
-        // Masquer après 5s
-        setTimeout(() => trigger.classList.remove('flag-active'), 5000);
-    }
-
-    // --- 2. GESTION DU SWIPE (Physique Tactile) ---
-
-    const onTouchStart = (e) => {
-        if (body.classList.contains('panel-open')) return; // Ne gère que l'ouverture pour ce PoC
-        
-        startX = e.touches[0].clientX;
+    // Fonction unifiée pour démarrer le drag
+    const startDrag = (clientX) => {
         isDragging = true;
-        
-        // On coupe les transitions CSS pour un suivi 1:1 instantané
+        startX = clientX;
+        // Stop animations et transitions pour fluidité max
+        trigger.classList.remove('pulse', 'intro-anim');
         trigger.style.transition = 'none';
-        chat.style.transition = 'none';
-        
-        // Mesure la largeur réelle du panneau
-        panelWidth = chat.getBoundingClientRect().width;
+        panel.style.transition = 'none';
     };
 
-    const onTouchMove = (e) => {
+    // Fonction unifiée pour le mouvement
+    const moveDrag = (clientX) => {
         if (!isDragging) return;
         
-        currentX = e.touches[0].clientX;
-        let deltaX = currentX - startX; // Négatif si on tire vers la gauche
-
-        // Logique de mouvement : On tire vers la gauche
-        if (deltaX < 0) {
-            // Mouvement du Trigger (suit le doigt)
-            trigger.style.transform = `translateY(-50%) translateX(${deltaX}px)`;
+        const delta = clientX - startX; // Négatif quand on va vers la gauche
+        
+        // On autorise seulement le drag vers la gauche
+        if (delta < 0) {
+            // Effet élastique sur le trigger
+            trigger.style.transform = `translateY(-50%) translateX(${delta}px)`;
             
-            // Mouvement du Chat Panel (suit avec un léger décalage ou collé)
-            // On calcule la position : 100% (caché) -> 0% (ouvert)
-            // Initialement à 100% (soit panelWidth px). On veut le rapprocher de 0.
-            let chatTranslate = Math.max(0, panelWidth + deltaX);
-            chat.style.transform = `translateX(${chatTranslate}px)`;
+            // Le panneau suit (il est décalé de sa propre largeur initialement)
+            // position = LargeurPanel + delta (ex: 300 + -50 = 250)
+            const panelWidth = panel.offsetWidth;
+            const newPos = Math.max(0, panelWidth + delta); // Ne va pas plus loin que 0
+            panel.style.transform = `translateX(${newPos}px)`;
         }
     };
 
-    const onTouchEnd = () => {
+    // Fonction unifiée pour la fin
+    const endDrag = (clientX) => {
         if (!isDragging) return;
         isDragging = false;
         
-        // Rétablissement des transitions CSS (Bezier)
+        // On remet les transitions CSS
         trigger.style.transition = '';
-        chat.style.transition = '';
+        panel.style.transition = '';
         trigger.style.transform = ''; // Nettoie le style inline
-        chat.style.transform = '';    // Nettoie le style inline
+        panel.style.transform = '';
 
-        let deltaX = startX - currentX; // Distance parcourue vers la gauche
-        
-        // --- 3. SEUIL MAGNÉTIQUE ---
-        const screenWidth = window.innerWidth;
-        const triggerPoint = screenWidth * CONFIG.threshold;
+        const delta = startX - clientX; // Distance parcourue vers la gauche
+        const screenW = window.innerWidth;
 
-        if (deltaX > triggerPoint) {
-            // Ouverture complète (nX)
-            openPanel();
+        // Si on a tiré plus de 30% de l'écran OU fait un geste rapide
+        if (delta > screenW * dragThreshold) {
+            openChat();
         } else {
-            // Rebond élastique (Fermeture)
-            closePanel();
+            closeChat();
         }
     };
 
-    // --- FONCTIONS D'ÉTAT ---
+    // --- Événements TACTILES ---
+    trigger.addEventListener('touchstart', (e) => startDrag(e.touches[0].clientX), {passive: true});
+    window.addEventListener('touchmove', (e) => moveDrag(e.touches[0].clientX), {passive: true});
+    window.addEventListener('touchend', (e) => endDrag(e.changedTouches[0].clientX));
 
-    function openPanel() {
-        body.classList.add('panel-open');
-        trigger.classList.remove('pulse', 'flag-active');
+    // --- Événements SOURIS (Pour tester sur PC) ---
+    trigger.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // Évite la sélection de texte
+        startDrag(e.clientX);
+    });
+    window.addEventListener('mousemove', (e) => moveDrag(e.clientX));
+    window.addEventListener('mouseup', (e) => endDrag(e.clientX));
+
+
+    // --- Ouverture / Fermeture ---
+    function openChat() {
+        body.classList.add('chat-open');
+        trigger.classList.remove('pulse', 'flag-visible'); // Reset états
     }
 
-    function closePanel() {
-        body.classList.remove('panel-open');
-        trigger.classList.add('pulse'); // Retour en veille active
+    function closeChat() {
+        body.classList.remove('chat-open');
+        // On remet le pulse après un court délai
+        setTimeout(() => trigger.classList.add('pulse'), 500);
     }
 
-    // Toggle Click pour Desktop
+    // Clic simple sur le trigger (sans drag)
     trigger.addEventListener('click', () => {
-        if (body.classList.contains('panel-open')) {
-            closePanel();
-        } else {
-            openPanel();
-        }
+        // Petite sécu pour ne pas ouvrir si on vient de draguer
+        if(!isDragging) openChat();
     });
 
-    // Listeners Tactiles
-    trigger.addEventListener('touchstart', onTouchStart, { passive: true });
-    window.addEventListener('touchmove', onTouchMove, { passive: true }); // Window pour ne pas perdre le drag si on sort du trigger
-    window.addEventListener('touchend', onTouchEnd);
+    // Bouton Fermer
+    closeBtn.addEventListener('click', closeChat);
 });
+
+// ... code précédent ...
+    
+    // Référence au nouvel élément Glow
+    const touchGlow = document.getElementById('touchGlow');
+
+    let isDragging = false;
+    let startX = 0;
+    
+    // Fonction helper pour mettre à jour la position de la lumière
+    const updateGlowPosition = (clientY) => {
+        // On récupère la position du trigger par rapport à l'écran
+        const rect = trigger.getBoundingClientRect();
+        
+        // On calcule la position Y relative à l'intérieur du trigger
+        // (clientY est global, rect.top est la position du haut du trigger)
+        let relativeY = clientY - rect.top;
+        
+        // On s'assure que la lumière ne sort pas de la boîte
+        relativeY = Math.max(0, Math.min(relativeY, rect.height));
+        
+        // Application
+        touchGlow.style.top = `${relativeY}px`;
+    };
+
+    // --- 1. DÉBUT DU DRAG ---
+    const startDrag = (clientX, clientY) => {
+        isDragging = true;
+        startX = clientX;
+        
+        // Feedback visuel immédiat
+        trigger.classList.add('active-touch'); // Active la distorsion et montre la lumière
+        trigger.classList.remove('pulse', 'intro-anim');
+        
+        // On positionne la lumière immédiatement sous le doigt
+        updateGlowPosition(clientY);
+
+        trigger.style.transition = 'none';
+        panel.style.transition = 'none';
+    };
+
+    // --- 2. MOUVEMENT ---
+    const moveDrag = (clientX, clientY) => {
+        if (!isDragging) return;
+        
+        // Mise à jour de la lumière en temps réel
+        updateGlowPosition(clientY);
+
+        const delta = clientX - startX;
+        
+        if (delta < 0) {
+            // Déplacement physique
+            trigger.style.transform = `translateY(-50%) translateX(${delta}px)`;
+            
+            const panelWidth = panel.offsetWidth;
+            const newPos = Math.max(0, panelWidth + delta);
+            panel.style.transform = `translateX(${newPos}px)`;
+        }
+    };
+
+    // --- 3. FIN DU DRAG ---
+    const endDrag = (clientX) => {
+        if (!isDragging) return;
+        isDragging = false;
+        
+        // On retire les feedbacks visuels
+        trigger.classList.remove('active-touch');
+        
+        trigger.style.transition = '';
+        panel.style.transition = '';
+        trigger.style.transform = ''; 
+        panel.style.transform = '';
+
+        const delta = startX - clientX; 
+        const screenW = window.innerWidth;
+
+        if (delta > screenW * dragThreshold) {
+            openChat();
+        } else {
+            closeChat();
+        }
+    };
+
+    // --- Événements TACTILES (Updated) ---
+    trigger.addEventListener('touchstart', (e) => startDrag(e.touches[0].clientX, e.touches[0].clientY), {passive: true});
+    window.addEventListener('touchmove', (e) => moveDrag(e.touches[0].clientX, e.touches[0].clientY), {passive: true});
+    window.addEventListener('touchend', (e) => endDrag(e.changedTouches[0].clientX));
+
+    // --- Événements SOURIS (Updated) ---
+    trigger.addEventListener('mousedown', (e) => {
+        e.preventDefault(); 
+        startDrag(e.clientX, e.clientY);
+    });
+    window.addEventListener('mousemove', (e) => moveDrag(e.clientX, e.clientY));
+    window.addEventListener('mouseup', (e) => endDrag(e.clientX));
+
+    // ... le reste du code (openChat, closeChat) ...
