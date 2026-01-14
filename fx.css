@@ -2,7 +2,7 @@
 
 :root {
     --spine-color: 255, 255, 255;
-    --neon-blue: #00f0ff;
+    --neon-blue: rgba(255, 255, 255, 0.05);
     --glass-bg: rgba(255, 255, 255, 0.05);
     --glass-border: rgba(255, 255, 255, 0.2);
     --ease-elastic: cubic-bezier(0.19, 1, 0.22, 1);
