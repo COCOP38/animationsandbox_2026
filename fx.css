@@ -1,149 +1,228 @@
+/* fx.css - Version Corrigée */
+
 :root {
-    /* --- CUSTOMISATION MARCHAND --- */
-    --spine-color: #ffffff;
-    --spine-glow: 0 0 15px rgba(255, 255, 255, 0.6), 0 0 30px rgba(100, 200, 255, 0.4);
-    --spine-height: 50%;
-    --spine-width: 4px;
-    --primary-accent: #64b5f6;
-    
-    /* --- PHYSICS --- */
+    --spine-color: 255, 255, 255;
+    --neon-blue: #00f0ff;
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.2);
     --ease-elastic: cubic-bezier(0.19, 1, 0.22, 1);
-    --anim-duration: 0.6s;
 }
 
-/* Conteneur global (overlay) */
+/* Container global : Doit être au-dessus de tout mais laisser passer les clics */
 .fx {
     position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 999;
-    pointer-events: none; /* Laisse passer les clics sur le site */
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
     overflow: hidden;
 }
 
-/* --- THE SPINE (L'Épine) --- */
-.trigger {
+/* --- ZONE DE TRIGGER (Invisible mais tactile) --- */
+.trigger-zone {
     position: absolute;
     top: 50%;
     right: 0;
-    width: var(--spine-width);
-    height: var(--spine-height);
-    transform: translateY(-50%) translateX(0);
-    background: var(--spine-color);
-    border-radius: 10px 0 0 10px;
-    box-shadow: var(--spine-glow);
+    width: 40px; /* Zone large pour attraper facilement au doigt */
+    height: 50%;
+    transform: translateY(-50%) translateX(0); /* Position par défaut */
+    z-index: 1000;
     cursor: grab;
-    pointer-events: auto; /* Active l'interaction sur l'épine */
-    touch-action: none;   /* Empêche le scroll natif mobile au swipe */
-    z-index: 1002;
-    transition: transform var(--anim-duration) var(--ease-elastic), 
-                height 0.3s ease, 
-                width 0.3s ease;
+    pointer-events: auto; /* Capture les clics/touch */
+    touch-action: none;   /* Important pour le drag */
+    display: flex;
+    align-items: center;
+    justify-content: flex-end; /* Colle le visuel à droite */
+    transition: transform 0.6s var(--ease-elastic);
 }
 
-/* Effet : Neural Pulse (État n1) */
-.trigger.pulse {
-    animation: neuralPulse 4s infinite ease-in-out;
+/* --- LE SPINE VISUEL (La ligne lumineuse) --- */
+.spine-visual {
+    width: 4px; /* Largeur du SVG */
+    height: 100%; /* Prend toute la hauteur de la zone parent (50%) */
+    
+    /* IMPORTANT : On retire tout ce qui crée le rectangle */
+    background: transparent; 
+    border-radius: 0;
+    box-shadow: none; 
+    
+    /* Centrage du SVG */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+
+    transform-origin: center right; /* On étire depuis la droite */
+    transition: transform 0.1s ease, filter 0.3s ease; /* Transition très rapide pour la physique */
 }
 
-@keyframes neuralPulse {
-    0%, 100% { opacity: 0.6; box-shadow: 0 0 5px rgba(255,255,255,0.2); }
-    50% { opacity: 1; box-shadow: var(--spine-glow); }
+/* --- LE SVG (La forme organique) --- */
+.spine-visual svg {
+    height: 100%; /* S'étire en hauteur */
+    width: 100%;
+    
+    /* Couleur de la forme (blanc) */
+    fill: rgb(var(--spine-color));
+    
+    /* MAGIE : drop-shadow suit les courbes du SVG, contrairement à box-shadow */
+    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
+    
+    transition: filter 0.3s ease;
 }
 
-/* Affordance : Le Grip (3 points) */
-.trigger::after {
-    content: '';
+.trigger-zone.pulse .spine-visual svg {
+    animation: organicGlow 3s infinite ease-in-out;
+}
+
+@keyframes organicGlow {
+    0%, 100% { 
+        filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.3));
+        opacity: 0.7;
+    }
+    50% { 
+        /* Lueur intense + Cyan néon */
+        filter: drop-shadow(0 0 15px var(--neon-blue)) drop-shadow(0 0 5px white);
+        opacity: 1;
+    }
+}
+
+/* --- LE TRACKER LUMINEUX (Touch Glow) --- */
+.touch-glow {
     position: absolute;
-    top: 50%;
-    left: -12px; /* Décalé vers l'intérieur */
-    transform: translateY(-50%);
-    width: 6px;
-    height: 40px;
-    background: radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px);
-    background-size: 100% 12px; /* Texture 3 points */
-    opacity: 0.5;
-    pointer-events: none;
+    left: 50%;
+    top: 50%; /* Sera modifié par JS */
+    width: 60px;
+    height: 60px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, var(--neon-blue) 40%, transparent 70%);
+    transform: translate(-50%, -50%) scale(0); /* Invisible par défaut */
+    pointer-events: none; /* Ne bloque pas le touch */
+    border-radius: 50%;
+    mix-blend-mode: overlay; /* Fusionne joliment avec le fond */
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 2;
 }
 
-/* --- THE FLAG (État n2 - Sollicitation) --- */
-.trigger::before {
-    content: attr(data-label); /* Texte injecté via JS */
+/* Quand on touche (activé par JS) */
+.trigger-zone.active-touch .touch-glow {
+    transform: translate(-50%, -50%) scale(1); /* Apparaît */
+}
+
+/* Quand on tire, on étire légèrement la forme */
+.trigger-zone.active-touch .spine-visual {
+    transform: scaleX(1.3) scaleY(1.02); /* S'élargit sous la pression */
+    filter: drop-shadow(0 0 10px var(--neon-blue)); /* Glow intensifié */
+}
+
+
+/* Effet PULSE (Respiration) 
+.trigger-zone.pulse .spine-visual {
+    animation: glowPulse 3s infinite ease-in-out;
+}
+
+@keyframes glowPulse {
+    0%, 100% { 
+        box-shadow: 0 0 5px rgba(var(--spine-color), 0.3); 
+        opacity: 0.6;
+    }
+    50% { 
+        box-shadow: 0 0 25px rgba(0, 240, 255, 0.8), 0 0 10px white; 
+        opacity: 1;
+    }
+}*/
+
+/* GRIP (Les 3 points) */
+.spine-grip {
     position: absolute;
-    top: 50%;
-    right: 15px; /* Caché initialement à droite */
-    transform: translateY(-50%);
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    padding: 8px 16px;
-    border-radius: 20px 0 20px 20px;
+    right: 8px; /* À gauche de la ligne */
+    width: 4px;
+    height: 30px;
+    background: radial-gradient(circle, white 1px, transparent 1px);
+    background-size: 100% 10px;
+    opacity: 0.8;
+}
+
+/* --- ÉTIQUETTE (FLAG) --- */
+.trigger-zone::before {
+    content: attr(data-label);
+    position: absolute;
+    right: 10px; /* Caché derrière */
+    background: rgba(10, 10, 20, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
     color: white;
+    padding: 6px 14px;
+    border-radius: 20px;
     font-size: 12px;
     font-weight: 600;
-    white-space: nowrap;
     opacity: 0;
-    transition: all 0.5s var(--ease-elastic);
+    transform: scale(0.9) translateX(20px);
+    transition: all 0.4s var(--ease-elastic);
     pointer-events: none;
-    border: 1px solid rgba(255,255,255,0.2);
+    white-space: nowrap;
 }
 
-/* État n2 actif : Le Flag sort */
-.trigger.flag-active::before {
+/* État Flag Actif */
+.trigger-zone.flag-visible::before {
     opacity: 1;
-    right: 20px; /* Sort vers la gauche */
+    transform: scale(1) translateX(-45px); /* Sort vers la gauche */
 }
 
-/* --- THE PANEL (Interface Conversationnelle) --- */
-.chat {
+/* --- ANIMATION D'AMORÇAGE (Intro) --- */
+@keyframes introSlide {
+    0% { transform: translateY(-50%) translateX(100%); } /* Caché dehors */
+    40% { transform: translateY(-50%) translateX(-30px); } /* Sort un peu */
+    100% { transform: translateY(-50%) translateX(0); } /* Reviens au bord */
+}
+
+.trigger-zone.intro-anim {
+    animation: introSlide 1.5s var(--ease-elastic) forwards;
+}
+
+/* --- PANNEAU CHAT (Glassmorphism Pur) --- */
+.chat-panel {
     position: absolute;
     top: 0;
     right: 0;
-    width: 85%; /* Largeur mobile standard */
+    width: calc(100% - -1px); /* Mobile first */
     max-width: 400px;
     height: 100%;
-    background: rgba(20, 20, 30, 0.6); /* Sombre et transparent */
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: -20px 0 50px rgba(0,0,0,0.5);
-    transform: translateX(100%); /* Caché par défaut */
-    transition: transform var(--anim-duration) var(--ease-elastic);
+    
+    /* Le vrai effet Glass */
+    background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02));
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border-left: 1px solid rgba(255,255,255,0.15);
+    box-shadow: -10px 0 40px rgba(0,0,0,0.3);
+    
+    transform: translateX(100%); /* Caché à droite */
+    transition: transform 0.5s var(--ease-elastic);
     pointer-events: auto;
-    z-index: 1001;
-    display: flex;
-    flex-direction: column;
+    z-index: 999;
     padding: 20px;
+    color: white;
 }
 
-/* Simulation de contenu chat (Placeholder) */
-.chat::after {
-    content: "Assistant IA 2.0";
-    color: rgba(255,255,255,0.2);
-    font-size: 24px;
-    font-weight: 800;
-    margin-top: 100px;
-    text-align: center;
+/* État Ouvert */
+body.chat-open .chat-panel {
+    transform: translateX(0);
+}
+/* Quand ouvert, on pousse/cache le trigger */
+body.chat-open .trigger-zone {
+    opacity: 0; 
+    pointer-events: none;
 }
 
-/* --- ÉTAT nX : EXPANSION --- */
-body.panel-open .chat {
-    transform: translateX(0%);
-}
-body.panel-open .trigger {
-    transform: translateY(-50%) translateX(-300px); /* Suit le panneau (valeur approx, géré par JS en drag) */
-    opacity: 0; /* Disparaît ou s'intègre au panel */
-}
-
-/* --- ANIMATION D'AMORÇAGE (n0 -> n1) --- */
-@keyframes primeSlide {
-    0% { transform: translateY(-50%) translateX(0); }
-    50% { transform: translateY(-50%) translateX(-40px); width: 6px; } /* Sort de 40px */
-    100% { transform: translateY(-50%) translateX(0); }
-}
-
-.trigger.priming {
-    animation: primeSlide 1.2s var(--ease-elastic);
+/* Bouton Fermer */
+.close-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: white;
+    width: 32px; 
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 20px;
 }
